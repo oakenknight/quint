@@ -521,6 +521,14 @@ export class QuintLanguageServer {
                 arguments: [filePath, d.name],
               },
             },
+            {
+              range,
+              command: {
+                title: '▶ Get trace',
+                command: 'quint.getTrace',
+                arguments: [filePath, d.name],
+              },
+            },
           ]
         })
       )

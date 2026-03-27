@@ -10,7 +10,19 @@ import { commands, ExtensionContext, Terminal, window, workspace } from 'vscode'
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient/node'
 
 let client: LanguageClient
-let testTerminal: Terminal | undefined
+const terminals: Map<string, Terminal> = new Map()
+
+function getOrCreateTerminal(name: string): Terminal {
+  let terminal = terminals.get(name)
+  if (terminal?.exitStatus !== undefined) {
+    terminal = undefined
+  }
+  if (!terminal) {
+    terminal = window.createTerminal(name)
+    terminals.set(name, terminal)
+  }
+  return terminal
+}
 
 export function activate(context: ExtensionContext) {
   // The server is implemented in node
@@ -46,21 +58,29 @@ export function activate(context: ExtensionContext) {
 
   context.subscriptions.push(
     commands.registerCommand('quint.runTest', (filePath: string, testName: string) => {
-      if (testTerminal?.exitStatus !== undefined) {
-        testTerminal = undefined
-      }
-      if (!testTerminal) {
-        testTerminal = window.createTerminal('Quint Test')
-      }
-      testTerminal.show()
-      testTerminal.sendText(`quint test '${filePath}' --match '^${testName}$'`)
+      const terminal = getOrCreateTerminal('Quint Test')
+      terminal.show()
+      terminal.sendText(`quint test '${filePath}' --match '^${testName}$'`)
+    })
+  )
+
+  context.subscriptions.push(
+    commands.registerCommand('quint.getTrace', (filePath: string, runName: string) => {
+      const terminal = getOrCreateTerminal('Quint Trace')
+      terminal.show()
+      const dir = path.dirname(filePath)
+      const specName = path.basename(filePath, '.qnt')
+      const outPath = path.join(dir, `out_${specName}_${runName}_{seq}.itf.json`)
+      terminal.sendText(`quint test '${filePath}' --match '^${runName}$' --out-itf '${outPath}'`)
     })
   )
 
   context.subscriptions.push(
     window.onDidCloseTerminal(t => {
-      if (t === testTerminal) {
-        testTerminal = undefined
+      for (const [name, ref] of terminals) {
+        if (ref === t) {
+          terminals.delete(name)
+        }
       }
     })
   )
